@@ -1,0 +1,69 @@
+
+// 2. VARIABLES DE DÉCISION
+
+
+// Production x dans la période t (avec x>0)
+dvar float+ x[Periods];
+
+// Inventaire St à la fin de la période t (avec st>0)
+dvar float+ St[Periods];
+
+// Différence (absolue) du niveau de production |x_t - x_t-1|
+dvar float+ Change[Periods];
+//Nous allons définir par la suite 'change': calcul de la valeur absolue.  
+
+
+
+// 3. FONCTION OBJECTIF
+
+
+// Minimiser le coût total. On va donc minimiser tous les coûts existants. 
+//Min(Coût Total) = Coût d'Inventaire + Coût de différence de production
+
+minimize
+  sum (t in Periods) (CostStock * St[t]) 
+  + sum (t in Periods) (CostChange * Change[t]);     
+
+
+// 4. CONTRAINTES
+
+
+subject to {
+
+  // C1: Contrainte de Flux de Stock St(t-1) + Production(t) = Demande(t) + Stock(t)
+  forall (t in Periods)
+    ctFlow:
+      ( (t==1) ? St0 : St[t-1] ) + x[t] == Demand[t] + St[t];
+
+// Ici nous avons mis la condition : "Si t=1, alors nous utilisons la valeur connue st(0), sinon, on réalise le calcul"
+ 
+ 
+  // C2: Définition de la différence de Production, d'un mois au mois suivant (valeur absolue)
+  // Utilise deux contraintes pour forcer Change[t] >= |P(t) - P(t-1)|
+  forall (t in Periods) {
+    // Cas 1 : Change[t] >= (P(t) - P(t-1))
+    //Cas où la production du mois +1 est inférieure au mois précédent. 
+    ctChangePos:
+      Change[t] >= x[t] - ( (t==1) ? x0 : x[t-1] );
+    
+    // Cas 2 : Change[t] >= P_t-1 - P_t
+    // Cas où la production du mois +1 est supérieure au mois suivant. 
+    ctChangeNeg:
+      Change[t] >= ( (t==1) ? x0 : x[t-1] ) - x[t];
+      
+    //Ces deux cas nous permettront d'obtenir un résultat d'une valeur absolue. 
+    // C'est pourquoi il fallait séparer deux cas : le cas où la différence est positive, le cas où la différence est négative.
+    // Dans ces deux cas, j'ai rajouté la condition si t=1, utiliser la valeur connue x(0) 
+  }
+
+  // C3: Contrainte de Niveau de Production Final (x(N) = x(0))
+  // Nous voulons la même quantité de production à la période initiale 0 et fianel N. (x(N)=x(0)). 
+  ctFinalProduction:
+    x[N] == x0; 
+    
+  // C4: Contrainte de Niveau de stock. 
+  //Nous voulons avoir la même quantité de stock à la période intiale 0 et finale N. (St(N) = St(0)). 
+  ctFinalInventory:
+    St[N] == St0; 
+
+}
