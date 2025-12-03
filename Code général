@@ -1,0 +1,51 @@
+// ********************************************
+
+
+// 1. DÉCLARATION DES PARAMÈTRES 
+int N;
+range Periods = 1..N;
+
+float Demand[Periods];
+float CostChange;
+float CostStock;
+float St0; 
+float x0;
+
+// 2. VARIABLES DE DÉCISION
+dvar float+ x[Periods]; // Production x dans la période t
+dvar float+ St[Periods]; // Inventaire St à la fin de la période t
+dvar float+ Change[Periods]; // Différence (absolue) du niveau de production |x_t - x_t-1|
+
+// 3. FONCTION OBJECTIF (Minimiser le Coût Total)
+minimize
+  sum (t in Periods) (CostStock * St[t])
+  + sum (t in Periods) (CostChange * Change[t]);
+
+// 4. CONTRAINTES
+subject to {
+
+  // C1: Contrainte de Flux de Stock
+  // St(t-1) + Production(t) = Demande(t) + Stock(t)
+  forall (t in Periods)
+    ctFlow:
+      ( (t==1) ? St0 : St[t-1] ) + x[t] == Demand[t] + St[t];
+  
+  // C2: Définition de la différence de Production (|x_t - x_t-1|)
+  forall (t in Periods) {
+    // Change[t] >= x[t] - x[t-1] (différence positive ou nulle)
+    ctChangePos:
+      Change[t] >= x[t] - ( (t==1) ? x0 : x[t-1] );
+      
+    // Change[t] >= x[t-1] - x[t] (différence négative)
+    ctChangeNeg:
+      Change[t] >= ( (t==1) ? x0 : x[t-1] ) - x[t];
+  }
+
+  // C3: Contrainte de Niveau de Production Final (x(N) = x(0))
+  ctFinalProduction:
+    x[N] == x0;
+    
+  // C4: Contrainte de Niveau de Stock Final (St(N) = St(0))
+  ctFinalInventory:
+    St[N] == St0;
+}
